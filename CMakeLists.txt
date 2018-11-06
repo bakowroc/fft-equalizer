@@ -14,7 +14,7 @@ set(OBJDUMP arm-none-eabi-objdump)
 set(SIZE arm-none-eabi-size)
 
 
-SET(LINKER_SCRIPT ${CMAKE_SOURCE_DIR}/STM32F103RBTx_FLASH.ld Src/Led/led.c Src/Led/led.h Src/Button/button.h Src/Button/button.c Src/Utils/utils.h Src/Utils/utils.c)
+SET(LINKER_SCRIPT ${CMAKE_SOURCE_DIR}/STM32F103RBTx_FLASH.ld)
 
 #Uncomment for hardware floating point
 #SET(FPU_FLAGS "-mfloat-abi=hard -mfpu=fpv4-sp-d16")
