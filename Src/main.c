@@ -37,7 +37,7 @@
   ******************************************************************************
   */
 /* Includes ------------------------------------------------------------------*/
-#include <string.h>
+#include <memory.h>
 #include "main.h"
 #include "stm32f1xx_hal.h"
 #include "Led/led.h"
@@ -48,15 +48,19 @@
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
-ADC_HandleTypeDef hadc1;
-ADC_HandleTypeDef hadc2;
+const float V25 = 0.76; // [Volts]
+const float Avg_slope = 0.0025; //[Volts/degree]
+const float SupplyVoltage = 3.0; // [Volts]
+const float ADCResolution = 4096.0;
 
+ADC_HandleTypeDef hadc1;
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
-uint8_t FREQ = 255;
-uint8_t CURRENT_FREQ = 255;
+uint32_t PomiarADC;
+float Vsense;
+uint8_t NUMBER_OF_ADC_MEASURES = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -64,7 +68,6 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_ADC1_Init(void);
-static void MX_ADC2_Init(void);
 
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
@@ -106,35 +109,40 @@ int main(void)
   MX_GPIO_Init();
   MX_USART2_UART_Init();
   MX_ADC1_Init();
-  MX_ADC2_Init();
   /* USER CODE BEGIN 2 */
-
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  uint16_t PomiarADC;
-  HAL_ADC_Start(&hadc1);
 
-  while (1)  {
-    if (HAL_ADC_PollForConversion(&hadc1, 10) == HAL_OK) {
-      PomiarADC = HAL_ADC_GetValue(&hadc1);
-      HAL_ADC_Start(&hadc1);
-    }
-    LED_Blink(CURRENT_FREQ);
+  while (1)
+  {
+
+  /* USER CODE END WHILE */
+  /* USER CODE BEGIN 3 */
+
   }
+  /* USER CODE END 3 */
+
 }
 
-/* RCC Handler for GPIO_PIN_13 (Button B1)*/
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc){
+    PomiarADC = HAL_ADC_GetValue(&hadc1); // Pobranie zmierzonej wartosci
+    Vsense = (SupplyVoltage*PomiarADC)/(ADCResolution-1); // Przeliczenie wartosci zmierzonej na napiecie
+    NUMBER_OF_ADC_MEASURES += 1;
+    if(NUMBER_OF_ADC_MEASURES >= 10) {
+        uint8_t value;
+        value = (uint8_t) Vsense;
+        HAL_UART_Transmit(&huart2, (u_int8_t *) value, sizeof(value), 1000);
+        HAL_ADC_Stop_IT(&hadc1);
+        LED_Off();
+    }
+}
+
+
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
-  if (CURRENT_FREQ <= 24) {
-    CURRENT_FREQ = FREQ;
-  }
-
-  char* message = int2char(CURRENT_FREQ);
-  HAL_UART_Transmit(&huart2, (uint8_t*)message, strlen(message), 1000);
-
-  CURRENT_FREQ = CURRENT_FREQ - 24;
+    LED_On();
+    HAL_ADC_Start_IT(&hadc1);
 }
 
 /**
@@ -204,7 +212,7 @@ static void MX_ADC1_Init(void)
     */
   hadc1.Instance = ADC1;
   hadc1.Init.ScanConvMode = ADC_SCAN_DISABLE;
-  hadc1.Init.ContinuousConvMode = DISABLE;
+  hadc1.Init.ContinuousConvMode = ENABLE;
   hadc1.Init.DiscontinuousConvMode = DISABLE;
   hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
   hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
@@ -220,38 +228,6 @@ static void MX_ADC1_Init(void)
   sConfig.Rank = ADC_REGULAR_RANK_1;
   sConfig.SamplingTime = ADC_SAMPLETIME_1CYCLE_5;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
-  {
-    _Error_Handler(__FILE__, __LINE__);
-  }
-
-}
-
-/* ADC2 init function */
-static void MX_ADC2_Init(void)
-{
-
-  ADC_ChannelConfTypeDef sConfig;
-
-    /**Common config 
-    */
-  hadc2.Instance = ADC2;
-  hadc2.Init.ScanConvMode = ADC_SCAN_DISABLE;
-  hadc2.Init.ContinuousConvMode = DISABLE;
-  hadc2.Init.DiscontinuousConvMode = DISABLE;
-  hadc2.Init.ExternalTrigConv = ADC_SOFTWARE_START;
-  hadc2.Init.DataAlign = ADC_DATAALIGN_RIGHT;
-  hadc2.Init.NbrOfConversion = 1;
-  if (HAL_ADC_Init(&hadc2) != HAL_OK)
-  {
-    _Error_Handler(__FILE__, __LINE__);
-  }
-
-    /**Configure Regular Channel 
-    */
-  sConfig.Channel = ADC_CHANNEL_0;
-  sConfig.Rank = ADC_REGULAR_RANK_1;
-  sConfig.SamplingTime = ADC_SAMPLETIME_1CYCLE_5;
-  if (HAL_ADC_ConfigChannel(&hadc2, &sConfig) != HAL_OK)
   {
     _Error_Handler(__FILE__, __LINE__);
   }
